@@ -68,7 +68,7 @@ jobs:
         uses: docker/build-push-action@v4
         with:
           context: .  # Use the current directory for the build context
-          file: Dockerfile  # Specify the Dockerfile name
+          file: DockerFile  # Specify the Dockerfile name
           push: true  # Push the built image to Docker Hub
           tags: ${{ secrets.DOCKER_USERNAME }}/flask-app:latest  # Specify image tag
 
