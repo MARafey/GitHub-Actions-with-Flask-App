@@ -1,0 +1,78 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main  # Trigger pipeline on pushes to the 'main' branch
+  pull_request:
+    branches:
+      - main  # Trigger pipeline on pull requests to the 'main' branch
+
+jobs:
+  # Job 1: Run tests and code quality checks
+  test:
+    runs-on: ubuntu-latest  # Use the latest Ubuntu environment
+
+    steps:
+      # Step 1: Check out the code from the repository
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      # Step 2: Set up Python environment
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'  # Specify the Python version to use
+
+      # Step 3: Install dependencies
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip  # Upgrade pip
+          pip install -r requirements.txt  # Install project dependencies
+
+      # Step 4: Perform code linting with flake8
+      - name: Run Code Linting
+        run: |
+          pip install flake8  # Install flake8 for linting
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics  # Catch severe issues
+          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics  # Check for style issues
+
+      # Step 5: Run tests
+      - name: Run Tests
+        run: python test.py  # Execute the test script
+
+  # Job 2: Build and push the Docker image
+  docker-build:
+    runs-on: ubuntu-latest  # Use the latest Ubuntu environment
+    needs: test  # Run this job only if 'test' job succeeds
+
+    steps:
+      # Step 1: Check out the code from the repository
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      # Step 2: Set up Docker Buildx (required for multi-platform builds)
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      # Step 3: Log in to Docker Hub
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}  # Docker Hub username from repository secrets
+          password: ${{ secrets.DOCKER_PASSWORD }}  # Docker Hub password from repository secrets
+
+      # Step 4: Build and push Docker image
+      - name: Build and Push Docker Image
+        id: docker_build  # Assign an ID to this step for later reference
+        uses: docker/build-push-action@v4
+        with:
+          context: .  # Use the current directory for the build context
+          file: Dockerfile  # Specify the Dockerfile name
+          push: true  # Push the built image to Docker Hub
+          tags: ${{ secrets.DOCKER_USERNAME }}/flask-app:latest  # Specify image tag
+
+      # Step 5: Output Docker image digest
+      - name: Output Docker Image Digest
+        run: |
+          echo "Docker Image Digest: ${{ steps.docker_build.outputs.digest }}"  # Display the digest of the built image
